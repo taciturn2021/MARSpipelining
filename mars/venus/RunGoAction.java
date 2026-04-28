@@ -8,6 +8,7 @@
    import java.awt.event.*;
    import javax.swing.*;
    import java.io.*;
+   import mars.simulator.ExecutionModel;
 	
 	/*
 Copyright (c) 2003-2007,  Pete Sanderson and Kenneth Vollmar
@@ -58,6 +59,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
        public void actionPerformed(ActionEvent e) {
          name = this.getValue(Action.NAME).toString();
          executePane = mainUI.getMainPane().getExecutePane();
+         if (Globals.getExecutionModel() == ExecutionModel.PIPELINED) {
+            JOptionPane.showMessageDialog(mainUI,
+               "Go is not enabled in Pipelined mode yet. Use Step to retire instructions or Step Cycle to advance one clock.");
+            return;
+         }
          if(FileStatus.isAssembled()){
 			   if (!mainUI.getStarted()) {
                processProgramArgumentsIfAny();  // DPS 17-July-2008

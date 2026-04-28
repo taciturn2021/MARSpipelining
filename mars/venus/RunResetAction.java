@@ -84,7 +84,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          executePane.getDataSegmentWindow().clearHighlighting();
 			executePane.getTextSegmentWindow().resetModifiedSourceCode();
          executePane.getTextSegmentWindow().setCodeHighlighting(true);
-         executePane.getTextSegmentWindow().highlightStepAtPC();
+         executePane.updateExecutionModelDisplay();
+         if (Globals.isPipelinedMode()) {
+            executePane.highlightPipelineState();
+         }
+         else {
+            executePane.getTextSegmentWindow().highlightStepAtPC();
+         }
          mainUI.getRegistersPane().setSelectedComponent(executePane.getRegistersWindow());
          FileStatus.set(FileStatus.RUNNABLE);
          mainUI.setReset(true);

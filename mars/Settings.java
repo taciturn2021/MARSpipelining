@@ -305,7 +305,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
      * @return true if backstepping is permitted, false otherwise.
      */
        public boolean getBackSteppingEnabled() {
-         return (Globals.program!=null && Globals.program.getBackStepper()!=null && Globals.program.getBackStepper().enabled());
+         return !Globals.isPipelinedMode()
+            && (Globals.program!=null && Globals.program.getBackStepper()!=null && Globals.program.getBackStepper().enabled());
       }
    
    

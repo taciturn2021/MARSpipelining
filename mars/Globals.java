@@ -3,6 +3,7 @@
    import mars.mips.instructions.*;
    import mars.mips.hardware.*;
    import mars.assembler.*;
+   import mars.simulator.ExecutionModel;
    import mars.venus.*;
    import mars.util.*;
    import java.io.*;
@@ -93,6 +94,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		public static final String[] ASCII_TABLE = getAsciiStrings();
       /** MARS exit code -- useful with SYSCALL 17 when running from command line (not GUI) */
       public static int exitCode = 0;
+      private static int executionModel = ExecutionModel.CLASSIC;
    	
       public static boolean runSpeedPanelExists = false;
    	
@@ -112,6 +114,18 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     
        public static Settings getSettings() {
          return settings;
+      }
+
+      public static int getExecutionModel() {
+         return executionModel;
+      }
+
+      public static void setExecutionModel(int model) {
+         executionModel = model;
+      }
+
+      public static boolean isPipelinedMode() {
+         return executionModel == ExecutionModel.PIPELINED;
       }
    
     /**

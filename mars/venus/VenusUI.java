@@ -1,5 +1,6 @@
    package mars.venus;
    import mars.*;
+   import mars.simulator.ExecutionModel;
    import mars.mips.dump.*;
    import javax.swing.*;
    import java.awt.*;
@@ -71,7 +72,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       private JMenu file, run, window, help, edit, settings;
       private JMenuItem fileNew, fileOpen, fileClose, fileCloseAll, fileSave, fileSaveAs, fileSaveAll, fileDumpMemory, filePrint, fileExit;
       private JMenuItem editUndo, editRedo, editCut, editCopy, editPaste, editFindReplace, editSelectAll;
-      private JMenuItem runGo, runStep, runBackstep, runReset, runAssemble, runStop, runPause, runClearBreakpoints, runToggleBreakpoints;
+      private JMenuItem runGo, runStep, runStepCycle, runBackstep, runReset, runAssemble, runStop, runPause, runClearBreakpoints, runToggleBreakpoints;
+      private JRadioButtonMenuItem runClassicModel, runPipelinedModel;
       private JCheckBoxMenuItem settingsLabel, settingsPopupInput, settingsValueDisplayBase, settingsAddressDisplayBase,
               settingsExtended, settingsAssembleOnOpen, settingsAssembleAll, settingsWarningsAreErrors, settingsStartAtMain,
       		  settingsDelayedBranching, settingsProgramArguments, settingsSelfModifyingCode;
@@ -81,7 +83,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       // components of the toolbar
       private JButton Undo, Redo, Cut, Copy, Paste, FindReplace, SelectAll;
       private JButton New, Open, Save, SaveAs, SaveAll, DumpMemory, Print;
-      private JButton Run, Assemble, Reset, Step, Backstep, Stop, Pause;
+      private JButton Run, Assemble, Reset, Step, StepCycle, Backstep, Stop, Pause;
       private JButton Help;
    
       // The "action" objects, which include action listeners.  One of each will be created then
@@ -93,7 +95,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       EditUndoAction editUndoAction;
       EditRedoAction editRedoAction;
       private Action editCutAction, editCopyAction, editPasteAction, editFindReplaceAction, editSelectAllAction;
-      private Action runAssembleAction, runGoAction, runStepAction, runBackstepAction, runResetAction, 
+      private Action runAssembleAction, runGoAction, runStepAction, runStepCycleAction, runBackstepAction, runResetAction, 
                      runStopAction, runPauseAction, runClearBreakpointsAction, runToggleBreakpointsAction;
       private Action settingsLabelAction, settingsPopupInputAction, settingsValueDisplayBaseAction, settingsAddressDisplayBaseAction,
                      settingsExtendedAction, settingsAssembleOnOpenAction, settingsAssembleAllAction,
@@ -332,6 +334,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                									  "Run one step at a time", KeyEvent.VK_T,
                									  KeyStroke.getKeyStroke( KeyEvent.VK_F7, 0),
                									  mainUI);	
+            runStepCycleAction = new RunStepCycleAction("Step Cycle",
+                                            null,
+               									  "Advance one pipeline clock cycle", KeyEvent.VK_Y,
+               									  KeyStroke.getKeyStroke( KeyEvent.VK_F6, 0),
+               									  mainUI);
             runBackstepAction = new RunBackstepAction("Backstep", 
                                             new ImageIcon(tk.getImage(cs.getResource(Globals.imagesPath+"StepBack22.png"))),
                									  "Undo the last step", KeyEvent.VK_B,
@@ -550,6 +557,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runGo.setIcon(new ImageIcon(tk.getImage(cs.getResource(Globals.imagesPath+"Play16.png"))));//"Play16.gif"))));
          runStep = new JMenuItem(runStepAction);
          runStep.setIcon(new ImageIcon(tk.getImage(cs.getResource(Globals.imagesPath+"StepForward16.png"))));//"MyStepForward16.gif"))));
+         runStepCycle = new JMenuItem(runStepCycleAction);
          runBackstep = new JMenuItem(runBackstepAction);
          runBackstep.setIcon(new ImageIcon(tk.getImage(cs.getResource(Globals.imagesPath+"StepBack16.png"))));//"MyStepBack16.gif"))));
          runReset = new JMenuItem(runResetAction);
@@ -566,10 +574,34 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          run.add(runAssemble);
          run.add(runGo);
          run.add(runStep);
+         run.add(runStepCycle);
          run.add(runBackstep);
          run.add(runPause);
          run.add(runStop);
          run.add(runReset);
+         run.addSeparator();
+         JMenu executionModel = new JMenu("Execution Model");
+         ButtonGroup executionModelGroup = new ButtonGroup();
+         runClassicModel = new JRadioButtonMenuItem("Classic (current MARS)");
+         runPipelinedModel = new JRadioButtonMenuItem("Pipelined");
+         runClassicModel.setSelected(true);
+         runClassicModel.addActionListener(
+            new ActionListener() {
+               public void actionPerformed(ActionEvent e) {
+                  setExecutionModel(ExecutionModel.CLASSIC);
+               }
+            });
+         runPipelinedModel.addActionListener(
+            new ActionListener() {
+               public void actionPerformed(ActionEvent e) {
+                  setExecutionModel(ExecutionModel.PIPELINED);
+               }
+            });
+         executionModelGroup.add(runClassicModel);
+         executionModelGroup.add(runPipelinedModel);
+         executionModel.add(runClassicModel);
+         executionModel.add(runPipelinedModel);
+         run.add(executionModel);
          run.addSeparator();
          run.add(runClearBreakpoints);
          run.add(runToggleBreakpoints);
@@ -691,6 +723,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          Assemble.setText(""); 
          Step = new JButton(runStepAction);
          Step.setText(""); 
+         StepCycle = new JButton(runStepCycleAction);
+         StepCycle.setText("Cycle");
          Backstep = new JButton(runBackstepAction);
          Backstep.setText("");
          Reset = new JButton(runResetAction);
@@ -721,6 +755,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          toolBar.add(Assemble);
          toolBar.add(Run);   
          toolBar.add(Step);
+         toolBar.add(StepCycle);
          toolBar.add(Backstep);
          toolBar.add(Pause);
          toolBar.add(Stop);
@@ -802,6 +837,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runAssembleAction.setEnabled(false);
          runGoAction.setEnabled(false);
          runStepAction.setEnabled(false);
+         runStepCycleAction.setEnabled(false);
          runBackstepAction.setEnabled(false);
          runResetAction.setEnabled(false);
          runStopAction.setEnabled(false);
@@ -842,6 +878,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          if (!Globals.getSettings().getBooleanSetting(mars.Settings.ASSEMBLE_ALL_ENABLED)) {
             runGoAction.setEnabled(false);
             runStepAction.setEnabled(false);
+            runStepCycleAction.setEnabled(false);
             runBackstepAction.setEnabled(false);
             runResetAction.setEnabled(false);
             runStopAction.setEnabled(false);
@@ -880,6 +917,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runAssembleAction.setEnabled(true);
          runGoAction.setEnabled(false);
          runStepAction.setEnabled(false);
+         runStepCycleAction.setEnabled(false);
          runBackstepAction.setEnabled(false);
          runResetAction.setEnabled(false);
          runStopAction.setEnabled(false);
@@ -916,6 +954,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runAssembleAction.setEnabled(false);
          runGoAction.setEnabled(false);
          runStepAction.setEnabled(false);
+         runStepCycleAction.setEnabled(false);
          runBackstepAction.setEnabled(false);
          runResetAction.setEnabled(false);
          runStopAction.setEnabled(false);
@@ -950,8 +989,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          settingsDelayedBranchingAction.setEnabled(true); // added 25 June 2007
          settingsMemoryConfigurationAction.setEnabled(true); // added 21 July 2009
          runAssembleAction.setEnabled(true);
-         runGoAction.setEnabled(true);
+         runGoAction.setEnabled(!Globals.isPipelinedMode());
          runStepAction.setEnabled(true);
+         runStepCycleAction.setEnabled(Globals.isPipelinedMode());
          runBackstepAction.setEnabled(
             (Globals.getSettings().getBackSteppingEnabled()&& !Globals.program.getBackStepper().empty())
              ? true : false);
@@ -989,6 +1029,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runAssembleAction.setEnabled(false);
          runGoAction.setEnabled(false);
          runStepAction.setEnabled(false);
+         runStepCycleAction.setEnabled(false);
          runBackstepAction.setEnabled(false);
          runResetAction.setEnabled(false);
          runStopAction.setEnabled(true);
@@ -1023,6 +1064,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          runAssembleAction.setEnabled(true);
          runGoAction.setEnabled(false);
          runStepAction.setEnabled(false);
+         runStepCycleAction.setEnabled(false);
          runBackstepAction.setEnabled(
             (Globals.getSettings().getBackSteppingEnabled()&& !Globals.program.getBackStepper().empty())
              ? true : false);
@@ -1053,6 +1095,20 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    	
        public static void setReset(boolean b){
          reset=b;
+      }
+
+      public void setExecutionModel(int model) {
+         Globals.setExecutionModel(model);
+         if (runClassicModel != null) {
+            runClassicModel.setSelected(model == ExecutionModel.CLASSIC);
+         }
+         if (runPipelinedModel != null) {
+            runPipelinedModel.setSelected(model == ExecutionModel.PIPELINED);
+         }
+         if (mainPane != null && mainPane.getExecutePane() != null) {
+            mainPane.getExecutePane().updateExecutionModelDisplay();
+         }
+         setMenuState(getMenuState());
       }
    
    	/**

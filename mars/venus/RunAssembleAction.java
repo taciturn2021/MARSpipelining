@@ -113,7 +113,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                executePane.getDataSegmentWindow().clearHighlighting();
                executePane.getLabelsWindow().setupTable();
                executePane.getTextSegmentWindow().setCodeHighlighting(true);
-               executePane.getTextSegmentWindow().highlightStepAtPC();
+               executePane.updateExecutionModelDisplay();
+               if (Globals.isPipelinedMode()) {
+                  executePane.highlightPipelineState();
+               }
+               else {
+                  executePane.getTextSegmentWindow().highlightStepAtPC();
+               }
                registersPane.getRegistersWindow().clearWindow();
                registersPane.getCoprocessor1Window().clearWindow();
                registersPane.getCoprocessor0Window().clearWindow();

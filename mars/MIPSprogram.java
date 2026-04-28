@@ -58,6 +58,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       private ArrayList parsedList;
       private ArrayList machineList;
       private BackStepper backStepper;
+      private PipelineEngine pipelineEngine;
       private SymbolTable localSymbolTable;
       private MacroPool macroPool;
       private ArrayList<SourceLine> sourceLineList;
@@ -167,6 +168,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     
        public BackStepper getBackStepper() {
          return backStepper;
+      }
+
+      public PipelineEngine getPipelineEngine() {
+         return pipelineEngine;
       }
    
    /**
@@ -317,6 +322,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          Assembler asm = new Assembler();
          this.machineList = asm.assemble(MIPSprogramsToAssemble, extendedAssemblerEnabled, warningsAreErrors);
          this.backStepper = new BackStepper();
+         this.pipelineEngine = new PipelineEngine(this);
          return asm.getErrorList();
       }
    
@@ -359,6 +365,21 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     **/	
        public boolean simulateFromPC(int[] breakPoints, int maxSteps, AbstractAction a) throws ProcessingException {
          steppedExecution = false;
+         if (Globals.isPipelinedMode()) {
+            if (pipelineEngine == null) {
+               pipelineEngine = new PipelineEngine(this);
+            }
+            boolean done = false;
+            int remaining = maxSteps;
+            do {
+               done = pipelineEngine.stepUntilCommit();
+               if (maxSteps > 0) {
+                  remaining--;
+               }
+            }
+            while (!done && maxSteps > 0 && remaining > 0);
+            return done;
+         }
          Simulator sim = Simulator.getInstance();
          return sim.simulate(this, RegisterFile.getProgramCounter(), maxSteps, breakPoints, a);
       }
@@ -374,9 +395,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     **/
        public boolean simulateStepAtPC(AbstractAction a) throws ProcessingException {
          steppedExecution = true;
+         if (Globals.isPipelinedMode()) {
+            if (pipelineEngine == null) {
+               pipelineEngine = new PipelineEngine(this);
+            }
+            return pipelineEngine.stepUntilCommit();
+         }
          Simulator sim = Simulator.getInstance();
          boolean done = sim.simulate(this, RegisterFile.getProgramCounter(), 1, null,a);
          return done;
+      }
+
+      public boolean simulateCycleAtPC(AbstractAction a) throws ProcessingException {
+         steppedExecution = true;
+         if (pipelineEngine == null) {
+            pipelineEngine = new PipelineEngine(this);
+         }
+         return pipelineEngine.stepCycle();
       }
    
    /** Will be true only while in process of simulating a program statement

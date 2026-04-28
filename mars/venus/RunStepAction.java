@@ -2,6 +2,7 @@
 	import mars.*;
 	import mars.simulator.*;
 	import mars.mips.hardware.*;
+   import mars.simulator.ExecutionModel;
    import java.awt.*;
    import java.awt.event.*;
    import javax.swing.*;
@@ -61,8 +62,18 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             executePane.getTextSegmentWindow().setCodeHighlighting(true);
             try {
                done = Globals.program.simulateStepAtPC(this);
+               if (Globals.getExecutionModel() == ExecutionModel.PIPELINED) {
+                  stepped(done, done ? Simulator.NORMAL_TERMINATION : Simulator.MAX_STEPS, null);
+               }
             } 
-                catch (ProcessingException ev) {}
+                catch (ProcessingException ev) {
+                  if (Globals.getExecutionModel() == ExecutionModel.PIPELINED) {
+                     mainUI.getMessagesPane().postMarsMessage(ev.errors().generateErrorReport());
+                     executePane.refreshPipelineView();
+                     executePane.highlightPipelineState();
+                     FileStatus.set(FileStatus.TERMINATED);
+                  }
+               }
          }
          else{
             // note: this should never occur since "Step" is only enabled after successful assembly.
@@ -73,6 +84,17 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    	// When step is completed, control returns here (from execution thread, indirectly) 
    	// to update the GUI.
        public void stepped(boolean done, int reason, ProcessingException pe) {
+         if (Globals.getExecutionModel() == ExecutionModel.PIPELINED) {
+            executePane.refreshPipelineView();
+            executePane.getRegistersWindow().updateRegisters();
+            executePane.getCoprocessor1Window().updateRegisters();
+            executePane.getCoprocessor0Window().updateRegisters();
+            executePane.getDataSegmentWindow().updateValues();
+            executePane.highlightPipelineState();
+            FileStatus.set(done ? FileStatus.TERMINATED : FileStatus.RUNNABLE);
+            mainUI.setReset(false);
+            return;
+         }
          executePane.getRegistersWindow().updateRegisters();
          executePane.getCoprocessor1Window().updateRegisters();
          executePane.getCoprocessor0Window().updateRegisters();

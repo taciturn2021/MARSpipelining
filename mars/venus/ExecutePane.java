@@ -44,6 +44,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       private DataSegmentWindow dataSegment;
       private TextSegmentWindow  textSegment;
       private LabelsWindow labelValues;
+      private PipelineWindow pipelineWindow;
       private VenusUI mainUI;   
       private NumberDisplayBaseChooser valueDisplayBase;
       private NumberDisplayBaseChooser addressDisplayBase;
@@ -76,17 +77,21 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          textSegment = new TextSegmentWindow();
          dataSegment = new DataSegmentWindow(choosers);
          labelValues = new LabelsWindow();
+         pipelineWindow = new PipelineWindow();
          labelWindowVisible = Globals.getSettings().getLabelWindowVisibility();
          layoutPending = false;
          this.add(textSegment);  // these 3 LOC moved up.  DPS 3-Sept-2014
          this.add(dataSegment);
          this.add(labelValues);
+         this.add(pipelineWindow);
 			textSegment.pack();   // these 3 LOC added.  DPS 3-Sept-2014
 			dataSegment.pack();
 			labelValues.pack();
+         pipelineWindow.pack();
          textSegment.setVisible(true);
          dataSegment.setVisible(true);
          labelValues.setVisible(labelWindowVisible);
+         pipelineWindow.setVisible(Globals.isPipelinedMode());
 
       }
    	
@@ -121,18 +126,39 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             return;
          }
          int halfHeight = fullHeight/2;
-         Dimension textDim = new Dimension((int)(fullWidth*.75),halfHeight);
+         boolean pipelined = Globals.isPipelinedMode();
+         int pipelineWidth = pipelined ? (int)(fullWidth*.23) : 0;
+         int labelWidth = labelWindowVisible ? (int)(fullWidth*.22) : 0;
+         int textWidth = fullWidth - pipelineWidth - labelWidth;
+         Dimension textDim = new Dimension(textWidth,halfHeight);
          Dimension dataDim = new Dimension((int)(fullWidth),halfHeight);
-         Dimension lablDim = new Dimension((int)(fullWidth*.25), halfHeight);
+         Dimension lablDim = new Dimension(labelWidth, halfHeight);
+         Dimension pipeDim = new Dimension(pipelineWidth, halfHeight);
          Dimension textFullDim = new Dimension((int)(fullWidth), halfHeight);
          dataSegment.setBounds(0,textDim.height+1, dataDim.width, dataDim.height);
-         if (labelWindowVisible) {
+         if (labelWindowVisible || pipelined) {
             textSegment.setBounds(0, 0, textDim.width, textDim.height);
-            labelValues.setBounds(textDim.width+1, 0, lablDim.width, lablDim.height);
+            if (pipelined) {
+               pipelineWindow.setBounds(textDim.width+1, 0, pipeDim.width, pipeDim.height);
+               pipelineWindow.setVisible(true);
+            }
+            else {
+               pipelineWindow.setBounds(0, 0, 0, 0);
+               pipelineWindow.setVisible(false);
+            }
+            if (labelWindowVisible) {
+               int labelX = textDim.width + (pipelined ? pipeDim.width + 2 : 1);
+               labelValues.setBounds(labelX, 0, lablDim.width, lablDim.height);
+            }
+            else {
+               labelValues.setBounds(0, 0, 0, 0);
+            }
          } 
          else {
             textSegment.setBounds(0, 0, textFullDim.width, textFullDim.height);
             labelValues.setBounds(0, 0, 0, 0);			
+            pipelineWindow.setBounds(0, 0, 0, 0);
+            pipelineWindow.setVisible(false);
          }
       }
    	
@@ -172,6 +198,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
          this.getCoprocessor1Window().clearWindow();
          this.getCoprocessor0Window().clearWindow();
          this.getLabelsWindow().clearWindow();
+         this.getPipelineWindow().updateSnapshot(null);
       		// seems to be required, to display cleared Execute tab contents...
          if (mainUI.getMainPane().getSelectedComponent()== this) {
             mainUI.getMainPane().setSelectedComponent(mainUI.getMainPane().getEditTabbedPane());
@@ -219,6 +246,30 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    	 */  	
        public LabelsWindow getLabelsWindow() {
          return labelValues;
+      }
+
+      public PipelineWindow getPipelineWindow() {
+         return pipelineWindow;
+      }
+
+      public void refreshPipelineView() {
+         pipelineWindow.updateSnapshot(
+            (Globals.program == null || Globals.program.getPipelineEngine() == null)
+            ? null
+            : Globals.program.getPipelineEngine().getSnapshot());
+      }
+
+      public void highlightPipelineState() {
+         if (Globals.program == null || Globals.program.getPipelineEngine() == null) {
+            return;
+         }
+         getTextSegmentWindow().highlightStepAtAddress(
+            Globals.program.getPipelineEngine().getSnapshot().getHighlightAddress());
+      }
+
+      public void updateExecutionModelDisplay() {
+         refreshPipelineView();
+         setWindowBounds();
       }
     	/**
    	 * Retrieve the number system base for displaying values (mem/register contents)
