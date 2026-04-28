@@ -18,6 +18,7 @@ public class PipelineSnapshot {
    private final String[] instructionLabels;
    private final int[] instructionRowAddresses;
    private final String[][] timelineCells;
+   private final String[] cycleEvents;
 
    public PipelineSnapshot(
          long cycleCount,
@@ -33,7 +34,8 @@ public class PipelineSnapshot {
          int[] stageAddresses,
          String[] instructionLabels,
          int[] instructionRowAddresses,
-         String[][] timelineCells) {
+         String[][] timelineCells,
+         String[] cycleEvents) {
       this.cycleCount = cycleCount;
       this.retiredInstructionCount = retiredInstructionCount;
       this.fetchProgramCounter = fetchProgramCounter;
@@ -48,6 +50,7 @@ public class PipelineSnapshot {
       this.instructionLabels = instructionLabels;
       this.instructionRowAddresses = instructionRowAddresses;
       this.timelineCells = timelineCells;
+      this.cycleEvents = cycleEvents;
    }
 
    public long getCycleCount() {
@@ -104,5 +107,9 @@ public class PipelineSnapshot {
 
    public String[][] getTimelineCells() {
       return timelineCells;
+   }
+
+   public String[] getCycleEvents() {
+      return cycleEvents;
    }
 }

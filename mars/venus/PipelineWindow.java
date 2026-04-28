@@ -5,13 +5,17 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Point;
+import java.awt.Rectangle;
 
 import javax.swing.JInternalFrame;
 import javax.swing.JLabel;
+import javax.swing.JViewport;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
@@ -31,6 +35,7 @@ public class PipelineWindow extends JInternalFrame {
    private final JLabel statusValue;
    private final PipelineTimelineModel timelineModel;
    private final JTable timelineTable;
+   private final JScrollPane timelineScrollPane;
 
    public PipelineWindow() {
       super("Pipeline", true, false, true, true);
@@ -49,9 +54,10 @@ public class PipelineWindow extends JInternalFrame {
       timelineTable.setDefaultRenderer(Object.class, new TimelineCellRenderer(timelineModel));
       timelineTable.getTableHeader().setReorderingAllowed(false);
       timelineTable.setFont(new Font("Monospaced", Font.PLAIN, 12));
+      timelineScrollPane = new JScrollPane(timelineTable);
       getContentPane().setLayout(new BorderLayout());
       getContentPane().add(buildSummaryPanel(), BorderLayout.NORTH);
-      getContentPane().add(new JScrollPane(timelineTable), BorderLayout.CENTER);
+      getContentPane().add(timelineScrollPane, BorderLayout.CENTER);
       updateSnapshot(null);
       pack();
    }
@@ -83,6 +89,7 @@ public class PipelineWindow extends JInternalFrame {
             timelineTable.getColumnModel().getColumn(i).setPreferredWidth(48);
          }
       }
+      scrollToCurrentCycle(snapshot);
    }
 
    private JPanel buildSummaryPanel() {
@@ -117,7 +124,7 @@ public class PipelineWindow extends JInternalFrame {
       }
 
       public int getRowCount() {
-         return (snapshot == null || snapshot.getInstructionLabels() == null) ? 0 : snapshot.getInstructionLabels().length;
+         return (snapshot == null || snapshot.getInstructionLabels() == null) ? 0 : snapshot.getInstructionLabels().length + 1;
       }
 
       public int getColumnCount() {
@@ -132,10 +139,13 @@ public class PipelineWindow extends JInternalFrame {
          if (snapshot == null) {
             return "";
          }
-         if (columnIndex == 0) {
-            return snapshot.getInstructionLabels()[rowIndex];
+         if (rowIndex == 0) {
+            return (columnIndex == 0) ? "Events" : snapshot.getCycleEvents()[columnIndex - 1];
          }
-         return snapshot.getTimelineCells()[rowIndex][columnIndex - 1];
+         if (columnIndex == 0) {
+            return snapshot.getInstructionLabels()[rowIndex - 1];
+         }
+         return snapshot.getTimelineCells()[rowIndex - 1][columnIndex - 1];
       }
 
       public String getColumnName(int column) {
@@ -176,8 +186,16 @@ public class PipelineWindow extends JInternalFrame {
          boolean currentCycleColumn = snapshot != null && column > 0 && column == snapshot.getCycleCount();
          boolean activeRow = snapshot != null
             && snapshot.getInstructionRowAddresses() != null
-            && row < snapshot.getInstructionRowAddresses().length
-            && snapshot.getInstructionRowAddresses()[row] == snapshot.getHighlightAddress();
+            && row > 0
+            && (row - 1) < snapshot.getInstructionRowAddresses().length
+            && snapshot.getInstructionRowAddresses()[row - 1] == snapshot.getHighlightAddress();
+
+         if (row == 0) {
+            cell.setHorizontalAlignment(column == 0 ? SwingConstants.LEFT : SwingConstants.CENTER);
+            cell.setBackground(currentCycleColumn ? currentCycleColor.darker() : new Color(240, 240, 240));
+            cell.setFont(new Font("Monospaced", Font.BOLD, 11));
+            return cell;
+         }
 
          if (column == 0) {
             cell.setHorizontalAlignment(SwingConstants.LEFT);
@@ -216,5 +234,31 @@ public class PipelineWindow extends JInternalFrame {
          }
          return cell;
       }
+   }
+
+   private void scrollToCurrentCycle(final PipelineSnapshot snapshot) {
+      if (snapshot == null || snapshot.getCycleCount() <= 0 || timelineTable.getColumnCount() <= snapshot.getCycleCount()) {
+         return;
+      }
+      SwingUtilities.invokeLater(
+         new Runnable() {
+            public void run() {
+               int currentColumn = (int) snapshot.getCycleCount();
+               Rectangle target = timelineTable.getCellRect(0, currentColumn, true);
+               int[] addresses = snapshot.getInstructionRowAddresses();
+               if (addresses != null) {
+                  for (int i = 0; i < addresses.length; i++) {
+                     if (addresses[i] == snapshot.getHighlightAddress()) {
+                        target = target.union(timelineTable.getCellRect(i + 1, currentColumn, true));
+                        break;
+                     }
+                  }
+               }
+               JViewport viewport = timelineScrollPane.getViewport();
+               int newX = Math.max(0, target.x - 120);
+               int newY = Math.max(0, target.y - 40);
+               viewport.setViewPosition(new Point(newX, newY));
+            }
+         });
    }
 }

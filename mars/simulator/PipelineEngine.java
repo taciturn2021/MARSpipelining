@@ -39,6 +39,7 @@ public class PipelineEngine {
    private int[] timelineInstructionAddresses;
    private String[] timelineInstructionLabels;
    private ArrayList timelineColumns;
+   private ArrayList timelineEvents;
 
    public PipelineEngine(MIPSprogram program) {
       this.program = program;
@@ -61,6 +62,7 @@ public class PipelineEngine {
       statusMessage = "Pipeline reset";
       initializeTimelineRows();
       timelineColumns = new ArrayList();
+      timelineEvents = new ArrayList();
       RegisterFile.initializeProgramCounter(fetchProgramCounter);
    }
 
@@ -95,7 +97,8 @@ public class PipelineEngine {
             addresses,
             timelineInstructionLabels,
             timelineInstructionAddresses,
-            buildTimelineMatrix());
+            buildTimelineMatrix(),
+            buildCycleEvents());
    }
 
    public boolean stepCycle() throws ProcessingException {
@@ -150,7 +153,6 @@ public class PipelineEngine {
       idEx = nextIdEx;
       ifId = nextIfId;
       RegisterFile.initializeProgramCounter(fetchProgramCounter);
-      recordTimelineColumn(fetchedThisCycle, idThisCycle, exThisCycle, memThisCycle, wbThisCycle);
 
       finished = fetchExhausted && ifId.isEmpty() && idEx.isEmpty() && exMem.isEmpty() && memWb.isEmpty();
       if (finished) {
@@ -159,6 +161,7 @@ public class PipelineEngine {
       else if (!stalledLastCycle && !flushedLastCycle) {
          statusMessage = "Cycle completed";
       }
+      recordTimelineColumn(fetchedThisCycle, idThisCycle, exThisCycle, memThisCycle, wbThisCycle, buildEventLabel());
       return finished;
    }
 
@@ -481,7 +484,7 @@ public class PipelineEngine {
       }
    }
 
-   private void recordTimelineColumn(PipeReg fetchedThisCycle, PipeReg idThisCycle, PipeReg exThisCycle, PipeReg memThisCycle, PipeReg wbThisCycle) {
+   private void recordTimelineColumn(PipeReg fetchedThisCycle, PipeReg idThisCycle, PipeReg exThisCycle, PipeReg memThisCycle, PipeReg wbThisCycle, String eventLabel) {
       String[] column = new String[timelineInstructionAddresses.length];
       setTimelineCell(column, fetchedThisCycle, "IF");
       setTimelineCell(column, idThisCycle, "ID");
@@ -489,6 +492,7 @@ public class PipelineEngine {
       setTimelineCell(column, memThisCycle, "MEM");
       setTimelineCell(column, wbThisCycle, "WB");
       timelineColumns.add(column);
+      timelineEvents.add(eventLabel);
    }
 
    private void setTimelineCell(String[] column, PipeReg reg, String stage) {
@@ -519,6 +523,34 @@ public class PipelineEngine {
          }
       }
       return matrix;
+   }
+
+   private String[] buildCycleEvents() {
+      String[] events = new String[timelineEvents.size()];
+      for (int i = 0; i < timelineEvents.size(); i++) {
+         events[i] = (String) timelineEvents.get(i);
+      }
+      return events;
+   }
+
+   private String buildEventLabel() {
+      StringBuffer label = new StringBuffer();
+      if (stalledLastCycle) {
+         label.append("STALL");
+      }
+      if (flushedLastCycle) {
+         if (label.length() > 0) {
+            label.append(" ");
+         }
+         label.append("FLUSH");
+      }
+      if (forwardingSummary != null && forwardingSummary.length() > 0 && !"none".equals(forwardingSummary)) {
+         if (label.length() > 0) {
+            label.append(" ");
+         }
+         label.append("FWD");
+      }
+      return label.toString();
    }
 
    private ProcessingException unsupported(ProgramStatement statement) {
